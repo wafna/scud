@@ -1,0 +1,120 @@
+/*
+ * Build for Artscentre project group.
+ */
+
+apply plugin: 'idea'
+
+allprojects {
+   version = '1.0'
+   group = 'artscentre'
+   //apply plugin: 'idea'
+}
+subprojects {
+   apply plugin: 'scala'
+   apply plugin: 'idea'
+   repositories {
+      mavenCentral()
+   }
+   jar {
+      baseName rootProject.name
+      appendix project.name
+      manifest.attributes provider: 'gradle', build: 'sha goes here'
+   }
+   // task configuration aspect.
+   tasks.withType(ScalaCompile) {
+      // again, taking advantage of the projects' common layouts.
+      dependencies {
+         // this seems to be all that is needed to specify the whole language context (e.g. the compiler).
+         compile 'org.scala-lang:scala-library:2.11.1'
+         compile 'org.scala-lang:scala-compiler:2.11.1'
+         testCompile 'org.scalatest:scalatest_2.11:2.2.1'
+         testCompile 'junit:junit:4.8.2'
+      }
+      configure(scalaCompileOptions) {
+         // info complains that useAnt deprecated. it's also not documented but appears in the examples.
+         useAnt = false
+         listFiles = true
+         unchecked = true
+         deprecation = true
+         additionalParameters = ['-feature']
+      }
+      configure(scalaCompileOptions.forkOptions) {
+         memoryMaximumSize = '1g'
+         jvmArgs = ['-XX:MaxPermSize=512m']
+      }
+   }
+   // the idea plugin doesn't pick this stuff up from the scalaCompileOptions, above.
+   // see https://github.com/gradle/gradle/blob/master/subprojects/ide/src/main/groovy/org/gradle/plugins/ide/idea/internal/IdeaScalaConfigurer.groovy
+   idea.module.iml {
+      withXml { XmlProvider xmlProvider ->
+         final Node iml = xmlProvider.asNode()
+         def facetManager = iml.component.find { it.@name == "FacetManager" }
+         if (!facetManager) {
+            facetManager = iml.appendNode("component", [name: "FacetManager"])
+         }
+
+         def scalaFacet = facetManager.facet.find { it.@type == "scala" }
+         if (!scalaFacet) {
+            scalaFacet = facetManager.appendNode("facet", [type: "scala", name: "Scala"])
+         }
+
+         def configuration = scalaFacet.configuration[0]
+         if (!configuration) {
+            configuration = scalaFacet.appendNode("configuration")
+         }
+         configuration.appendNode('option', [name: "compilerOptions"]).@value = '-feature'
+         configuration.appendNode('option', [name: "deprecationWarnings"]).@value = 'true'
+         configuration.appendNode('option', [name: "explainTypeErrors"]).@value = 'true'
+         configuration.appendNode('option', [name: "uncheckedWarnings"]).@value = 'true'
+      }
+   }
+    test {
+      testLogging {
+         // Show that tests are run in the command-line output
+         events 'started', 'passed'
+      }
+   }
+}
+
+task wrapper(type: Wrapper) {
+   gradleVersion = '2.0'
+}
+
+// really just a bag for common dependencies
+project(':util') {
+   dependencies {
+      compile 'ch.qos.logback:logback-core:1.1.2'
+      compile 'ch.qos.logback:logback-classic:1.1.2'
+      compile 'org.slf4j:slf4j-api:1.7.7'
+      compile 'com.codahale.metrics:metrics-core:3.0.1'
+      compile 'com.typesafe:config:1.2.1'
+   }
+}
+project(':listener') {
+   apply plugin: 'application'
+   mainClassName = 'wafna.udp.listener.Listener'
+   dependencies {
+      compile project(':util')
+   }
+}
+project(':sender') {
+   apply plugin: 'application'
+   mainClassName = 'wafna.udp.sender.Sender'
+   dependencies {
+      compile project(':util')
+   }
+}
+project(':client') {
+   apply plugin: 'application'
+   mainClassName = 'wafna.udp.client.Client'
+   dependencies {
+      compile project(':util')
+   }
+}
+project(':server') {
+   apply plugin: 'application'
+   mainClassName = 'wafna.udp.server.Server'
+   dependencies {
+      compile project(':util')
+   }
+}
