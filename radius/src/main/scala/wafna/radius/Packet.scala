@@ -100,22 +100,43 @@ class StdAttrType(code: Byte, name: String) extends BaseAttrType(code, name) {
  */
 class VendorAttrType(code: Byte, name: String) extends BaseAttrType(code, name)
 
-abstract class BaseAttr(val code: Byte, val data: Array[Byte]) {
+//object Attribute {
+//  def read(buffer: ReadBuffer): Attribute = {
+//    val code = buffer.readByte()
+//    val length = buffer.readByte()
+//    val data = buffer.readBytes(length - 2)
+//    new Attribute(code, data)
+//  }
+//}
+//class Attribute(val code: Byte, val data: Array[Byte]) {
+//  def write(buffer: WriteBuffer): Unit = {
+//    buffer.writeByte(code)
+//    buffer.writeByte(2 + data.length)
+//    buffer.writeBytes(data)
+//  }
+//}
+
+object BaseAttr {
+  def read(buffer: ReadBuffer): BaseAttr = {
+    val code = buffer.readByte()
+    val length = buffer.readByte()
+    val data = buffer.readBytes(length - 2)
+    new BaseAttr(code, data)
+  }
+}
+class BaseAttr(val code: Byte, val data: Array[Byte]) {
   if (data.length > Byte.MaxValue) sys error s"value is too large: ${data.length}, max is ${Byte.MaxValue}"
+  def this(code: Byte, data: String, encoding: String = "utf-8") = this(code, data.getBytes(encoding))
   /**
    * Writes the attribute to a buffer and returns the number of bytes written (which will always be two plus the length
    * of the attribute value.
    * @param buffer byte array to which to write the attribute
    * @return the number of bytes written.
    */
-  def write(buffer: WriteBuffer): Int = {
+  def write(buffer: WriteBuffer): Unit = {
     buffer.writeByte(code)
-    val length = data.length
-    buffer.writeByte(length.toByte) // guaranteed to fit by the ctor
-    (0 until length) foreach { ix =>
-      buffer.writeByte(data(ix))
-    }
-    2 + length
+    buffer.writeByte(2 + data.length)
+    buffer.writeBytes(data)
   }
 }
 class StdAttr(val attrType: StdAttrType, data: Array[Byte]) extends BaseAttr(attrType.code, data) {
@@ -123,7 +144,10 @@ class StdAttr(val attrType: StdAttrType, data: Array[Byte]) extends BaseAttr(att
    * Convenient for directly using strings to set attribute values.
    */
   def this(attrType: StdAttrType, data: String, encoding: String = "utf-8") = this(attrType, data getBytes encoding)
-  def this(attrType: String, data: Array[Byte]) = this(StdAttrType.byName(attrType).getOrElse(sys error s"Unknown attribute type: $attrType"), data)
+
+  /**
+   * For readers
+   */
   def this(attrType: Byte, data: Array[Byte]) = this(StdAttrType.byCode(attrType).getOrElse(sys error s"Unknown attribute type: $attrType"), data)
 }
 class VendorAttr(val attrType: Byte, data: Array[Byte]) extends BaseAttr(attrType, data) {
@@ -162,23 +186,34 @@ class Vendor(val code: Int, val name: String) {
 
 object VendorSpecific {
   def read(buffer: ReadBuffer): VendorSpecific = {
-
+    val attrType = buffer.readByte()
+    val length = buffer.readByte()
+    val vendorCode = buffer.readInt()
+    val data = buffer.readBytes(length - 6) // account for vendor code as well as the other stuff
+    new VendorSpecific(vendorCode, data)
   }
 }
 
-class VendorSpecific private (vendor: Vendor, data: Array[Byte]) extends StdAttr(StdAttrType.VendorSpecific.code, data) {
+class VendorSpecific (vendor: Vendor, data: Array[Byte]) extends StdAttr(StdAttrType.VendorSpecific.code, data) {
   if (1 > data.length || 255 < data.length) sys error s"Invalid data size ${data.length}"
+  def this(vendorCode: Int, data: Array[Byte]) = this(Vendor.byCode(vendorCode), data)
   /**
-   * If the vendor structures its attributes this will parse them out.  Otherwise it will likely explode.
+   * If the vendor structures its attributes this will parse them out.  Otherwise it will likely explode and show the
+   * error.
    */
-  def subAttrs(): List[VendorAttr] = {
+  lazy val subAttrs: Either[String, List[VendorAttr]] = try {
     val length = data.length
     val rb = new ReadBuffer(data, 0)
     var attributes: List[VendorAttr] = Nil
     while (rb.position < length) {
-      attributes ::= VendorAttr.read(rb)
+      val attrType = rb.readByte()
+      val length = rb.readByte()
+      val attrData = rb.readBytes(length - 2)
+      attributes ::= new VendorAttr(attrType, attrData)
     }
-    attributes
+    Right(attributes)
+  } catch {
+    case e: Throwable => Left(e.getMessage)
   }
   override def write(buffer: WriteBuffer): Unit = {
     buffer.writeByte(code)
@@ -202,6 +237,7 @@ object RadiusPacket {
     var attributes: List[StdAttr] = Nil
     while (rb.position < length) {
       val attrCode = rb.readByte()
+
       attributes ::= (if (attrCode == StdAttrType.VendorSpecific.code) {
         val dataLength = rb.readByte()
         val data = rb.readBytes(dataLength)
@@ -233,7 +269,7 @@ class RadiusPacket(val packetType: PacketType, val packetId: Byte, val authentic
     if (length > 4096) sys error s"Radius packet is too large: $length"
     wb.writeByte(packetType.code)
     wb.writeByte(packetId)
-    wb.writeShort(length.toShort)
+    wb.writeShort(length)
     wb.writeBytes(authenticator)
     attributes.foreach(_ write wb)
     val pos = wb.position
