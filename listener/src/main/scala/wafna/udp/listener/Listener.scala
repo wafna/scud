@@ -1,5 +1,7 @@
 package wafna.udp.listener
 
+import com.typesafe.config.ConfigFactory
+
 import scala.annotation.tailrec
 
 import java.net.{DatagramPacket, DatagramSocket}
@@ -11,7 +13,8 @@ import wafna.udp.util.UDPConf
  */
 object Listener {
   def main(args: Array[String]): Unit = {
-    val port: Int = UDPConf.port
+    val config = ConfigFactory.load(this.getClass.getClassLoader, "app.conf")
+    val port = config.getInt("port")
     println(s"listening on port: $port")
     val socket = new DatagramSocket(port)
     val receiveBuffer = new Array[Byte](1024) // the limit is a tad less than 64K

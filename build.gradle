@@ -118,3 +118,8 @@ project(':server') {
       compile project(':util')
    }
 }
+project(':radius') {
+   dependencies {
+      compile project(':util')
+   }
+}

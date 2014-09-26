@@ -1,6 +1,7 @@
 package wafna.udp.sender
 
 import java.net.{DatagramPacket, DatagramSocket, InetAddress}
+import com.typesafe.config.ConfigFactory
 import wafna.udp.util.UDPConf
 
 /**
@@ -9,7 +10,8 @@ import wafna.udp.util.UDPConf
 object Sender {
   def main(args: Array[String]): Unit = {
     val host = InetAddress.getByName("localhost")
-    val port: Int = UDPConf.port
+    val config = ConfigFactory.load(this.getClass.getClassLoader, "app.conf")
+    val port = config.getInt("port")
     val socket = new DatagramSocket()
     def sendMessage(message: String): Unit = {
       println(s"sending: $message")
