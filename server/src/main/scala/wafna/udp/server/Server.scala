@@ -6,8 +6,6 @@ import scala.annotation.tailrec
 
 import java.net.{DatagramPacket, DatagramSocket}
 
-import wafna.udp.util.UDPConf
-
 object Server {
   def main(args: Array[String]): Unit = {
     val config = ConfigFactory.load(this.getClass.getClassLoader, "app.conf")

@@ -3,7 +3,6 @@ package wafna.udp.client
 import java.net.{DatagramPacket, DatagramSocket, InetAddress}
 
 import com.typesafe.config.ConfigFactory
-import wafna.udp.util.UDPConf
 
 /**
  * Sends messages and receives replies.

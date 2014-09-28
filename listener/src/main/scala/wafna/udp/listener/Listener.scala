@@ -1,12 +1,10 @@
 package wafna.udp.listener
 
-import com.typesafe.config.ConfigFactory
-
 import scala.annotation.tailrec
 
 import java.net.{DatagramPacket, DatagramSocket}
 
-import wafna.udp.util.UDPConf
+import com.typesafe.config.ConfigFactory
 
 /**
  * Receives messages and prints them to stdout.

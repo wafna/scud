@@ -2,8 +2,9 @@ package wafna.udp.util
 
 import java.nio.ByteBuffer
 
-class ReadBuffer(buffer: Array[Byte], at: Int) {
-  private var nth = at
+class ReadBuffer(buffer: Array[Byte]) {
+  def this(buffer: ByteBuffer) = this(buffer.array())
+  private var nth = 0
   def position = nth
   def readByte(): Byte = {
     val b = buffer(nth)

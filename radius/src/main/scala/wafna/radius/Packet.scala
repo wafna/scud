@@ -23,9 +23,7 @@ object PacketType {
 }
 
 class PacketType(val code: Byte, val name: String) {
-
-  import wafna.radius.PacketType._
-
+  import PacketType._
   if (255 == code) sys error "Illegal use of reserved packet type code 255"
   if (_byName contains name) sys error s"std attr $name already defined [${_byName.get(name).get}]"
   _byName += (name -> this)
@@ -86,9 +84,7 @@ object StdAttrType {
 }
 
 class StdAttrType(code: Byte, name: String) extends BaseAttrType(code, name) {
-
-  import wafna.radius.StdAttrType._
-
+  import StdAttrType._
   if (_byName contains name) sys error s"std attr $name already defined [${_byName.get(name).get}]"
   _byName += (name -> this)
   if (_byCode contains code) sys error s"std attr $code already defined [${_byCode.get(code).get}]"
@@ -173,9 +169,7 @@ object Vendor {
  * Represents the code and name of a radius client vendor, e.g. Nomadix, Zyxel, or Ruckus.
  */
 class Vendor(val code: Int, val name: String) {
-
-  import wafna.radius.Vendor._
-
+  import Vendor._
   // The highest order byte must be zero so this is the maximum value.
   if (code > 256 * 256 * 256) sys error s"Illegal vendor code: too large: $code"
   if (_byName contains name) sys error s"std attr $name already defined [${_byName.get(name).get}]"
@@ -196,14 +190,14 @@ object VendorSpecific {
 
 class VendorSpecific (vendor: Vendor, data: Array[Byte]) extends StdAttr(StdAttrType.VendorSpecific.code, data) {
   if (1 > data.length || 255 < data.length) sys error s"Invalid data size ${data.length}"
-  def this(vendorCode: Int, data: Array[Byte]) = this(Vendor.byCode(vendorCode), data)
+  def this(vendorCode: Int, data: Array[Byte]) = this(Vendor.byCode(vendorCode).getOrElse(sys error s"No vendor code: $vendorCode"), data)
   /**
    * If the vendor structures its attributes this will parse them out.  Otherwise it will likely explode and show the
    * error.
    */
   lazy val subAttrs: Either[String, List[VendorAttr]] = try {
     val length = data.length
-    val rb = new ReadBuffer(data, 0)
+    val rb = new ReadBuffer(data)
     var attributes: List[VendorAttr] = Nil
     while (rb.position < length) {
       val attrType = rb.readByte()
@@ -228,7 +222,7 @@ object RadiusPacket {
    * Read a radius packet from a buffer.
    */
   def read(bytes: Array[Byte]): RadiusPacket = {
-    val rb = new ReadBuffer(bytes, 0)
+    val rb = new ReadBuffer(bytes)
     val code = rb.readByte()
     val id = rb.readByte()
     val length = rb.readShort()

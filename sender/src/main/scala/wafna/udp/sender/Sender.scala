@@ -2,7 +2,6 @@ package wafna.udp.sender
 
 import java.net.{DatagramPacket, DatagramSocket, InetAddress}
 import com.typesafe.config.ConfigFactory
-import wafna.udp.util.UDPConf
 
 /**
  * Only sends messages.  Intended for use with the Listener.
